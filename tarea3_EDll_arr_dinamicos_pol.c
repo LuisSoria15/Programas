@@ -2,7 +2,6 @@
 //Soria Flores Luis Carlos
 #include<stdio.h>
 #include<stdlib.h>
-#include<malloc.h>
 #include<math.h>
 
 
@@ -16,6 +15,7 @@ void *crea_espacio(int *tam);
 void captura_datos(int tam, void *arr);
 void evalua(int tam, void *arr);
 void deriva(int tam, void *arr);
+void libera(void *arr);
 
 int main()
 {
@@ -26,6 +26,8 @@ int main()
     captura_datos(tam, arr);
     evalua(tam, arr);
     deriva(tam, arr);
+    libera(arr);
+
 }
 
 void *crea_espacio(int *tam)
@@ -60,7 +62,7 @@ void evalua(int tam, void *arr)
     {
         acum += ((Polinomio*)arr+i)->coeficiente * pow(x, ((Polinomio*)arr+i)->exponente);
     }
-    printf("%d\n", acum);
+    printf("Polinomio = %d\n", acum);
 }
 
 void deriva(int tam, void *arr)
@@ -84,4 +86,9 @@ void deriva(int tam, void *arr)
             printf("El exponente %d es: %d\n", i + 1, pol->exponente);
         }
     }
+}
+
+void libera(void *arr)
+{
+    free(arr);
 }
