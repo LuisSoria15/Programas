@@ -48,16 +48,31 @@ void elimina_arista(TGrafoM g, int vo, int vd);
 int elimina_vertice(TGrafoM *g, int ver);
 TNodoA *crea_nodoA(int vd);
 void inserta_final(TNodoA **cab, int vd);
+void imprime_lista(TNodoA *cab);
 void crea_grafo_vector(TGrafoM g, TGrafoV *g1);
+void imprime_grafoV(TGrafoV g);
 
 int main()
 {
     TGrafoM grafo;
+    TGrafoV g1;
+    int v;
 
     crea_grafoM(&grafo, "g1.txt");
     Matriz(grafo);
     if (agrega_vertice(&grafo, 6));
-    Matriz(grafo);
+    {
+        Matriz(grafo);
+    }
+    printf("Vertice a Eliminar: ");
+    scanf("%d", &v);
+
+    if(elimina_vertice(&grafo, v))
+    {
+        Matriz(grafo);
+    }
+    crea_grafo_vector(grafo, &g1);
+    imprime_grafoV(g1);
     //  imprime_grafo(grafo);
 }
 
@@ -282,6 +297,15 @@ void inserta_final(TNodoA **cab, int vd)
     }
 }
 
+void imprime_lista(TNodoA *cab)
+{
+    if(cab)
+    {
+        printf("%d", cab->vertice_d);
+        imprime_lista(cab->sig);
+    }
+}
+
 void crea_grafo_vector(TGrafoM g, TGrafoV *g1)
 {
     int v, v1;
@@ -301,8 +325,20 @@ void crea_grafo_vector(TGrafoM g, TGrafoV *g1)
         {
             if(*(*(g.mR+v)+v1) == 1)
             {
-                inserta_final(&((g1->vertices + v)->cab_rel), 'A' + v1);
+                inserta_final(&((g1->vertices + v)->cab_rel), *(g.vertices+v1));
             }
         }
+    }
+}
+
+void imprime_grafoV(TGrafoV g)
+{
+    int o;
+
+    for(o=0; o<g.nv; o++)
+    {
+        printf("%d -> ", (g.vertices+o)->vertice);
+        imprime_lista((g.vertices+o)->cab_rel);
+        printf("\n");
     }
 }
