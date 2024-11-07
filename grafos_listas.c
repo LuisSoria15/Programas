@@ -10,20 +10,6 @@ typedef struct //grafo en matriz
     int tipo; // Dirigido o No Dirigido
 } TGrafoM; // Grafo en Matriz
 
-
-typedef struct//grafo en vector relacion o arreglo de listas
-{
-    TNodoVV *vertices;
-    int nv;
-    int tipo;  //Dirigido o No Dirigido
-}TGrafoV;  //Grafo en vector
-
-typedef struct nodV
-{
-    int vertice;
-    struct nodA *cab_rel;
-}TNodoVV;
-
 typedef struct nodA
 {
     //int peso;
@@ -31,6 +17,18 @@ typedef struct nodA
     struct nodA *sig;
 }TNodoA;
 
+typedef struct nodV
+{
+    int vertice;
+    struct nodA *cab_rel;
+}TNodoVV;
+
+typedef struct//grafo en vector relacion o arreglo de listas
+{
+    TNodoVV *vertices;
+    int nv;
+    int tipo;  //Dirigido o No Dirigido
+}TGrafoV;  //Grafo en vector
 
 /*typedef struct//grafo en lista de listas
 {
@@ -45,6 +43,12 @@ void imprime_grafo(TGrafoM g);
 void Matriz(TGrafoM g);
 int agrega_vertice(TGrafoM *g, int ver);
 int modifica_arista(TGrafoM g, int vo, int vd, int va);
+void agrega_arista(TGrafoM g, int vo, int vd);
+void elimina_arista(TGrafoM g, int vo, int vd);
+int elimina_vertice(TGrafoM *g, int ver);
+TNodoA *crea_nodoA(int vd);
+void inserta_final(TNodoA **cab, int vd);
+void crea_grafo_vector(TGrafoM g, TGrafoV *g1);
 
 int main()
 {
@@ -263,6 +267,7 @@ TNodoA *crea_nodoA(int vd)
         aux->vertice_d=vd;
         aux->sig=NULL;
     }
+    return aux;
 }
 
 void inserta_final(TNodoA **cab, int vd)
@@ -279,7 +284,25 @@ void inserta_final(TNodoA **cab, int vd)
 
 void crea_grafo_vector(TGrafoM g, TGrafoV *g1)
 {
-    int v;
+    int v, v1;
 
-    
+    g1->nv=g.nv;
+    g1->vertices=(TNodoVV*)malloc(sizeof(TNodoVV) * g.nv);
+
+    for(v=0; v<g.nv; v++)
+    {
+        (g1->vertices + v)->vertice = *(g.vertices + v);
+        (g1->vertices + v)->cab_rel = NULL;
+    }
+
+    for(v=0; v<g.nv; v++)
+    {
+        for(v1=0; v1<g.nv; v1++)
+        {
+            if(*(*(g.mR+v)+v1) == 1)
+            {
+                inserta_final(&((g1->vertices + v)->cab_rel), 'A' + v1);
+            }
+        }
+    }
 }
