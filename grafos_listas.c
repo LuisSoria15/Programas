@@ -30,12 +30,26 @@ typedef struct//grafo en vector relacion o arreglo de listas
     int tipo;  //Dirigido o No Dirigido
 }TGrafoV;  //Grafo en vector
 
-/*typedef struct//grafo en lista de listas
+typedef struct nodAL
+{
+    //int peso;
+    struct nodVL *arri; //o *dest
+    struct nodAL *sig;
+}TNodoAL;
+
+typedef struct nodVL
+{
+    int vertice;
+    struct nodVL *sig;
+    struct nodAL *aba;
+}TNodoVL;
+
+typedef struct//grafo en lista de listas
 {
     TNodoVL* grafo;
     int nv;
     int tipo;  //Dirigido o No Dirigido
-}TGrafoL;*/
+}TGrafoL;
 
 void crea_grafoM(TGrafoM *g, char nom_arch[]);
 int **crea_arreglo2D(int nr, int nc);
@@ -340,5 +354,49 @@ void imprime_grafoV(TGrafoV g)
         printf("%d -> ", (g.vertices+o)->vertice);
         imprime_lista((g.vertices+o)->cab_rel);
         printf("\n");
+    }
+}
+
+//crear funciones modifica arista, agrega arista, elimina arista y las funciones agrega vertice elimina vertice del arrgelo de lista
+//crear funcion crea grafo lista de listas a partir de mR
+//funciones crea nodo de LL
+
+void crea_grafoLL(TGrafoM g, TGrafoL *g1)
+{
+    int v, o, d;
+    TNodoVL *vo, *vd;
+    g1->grafo = NULL;
+    g1->nv = g.nv;
+    g1->tipo;
+
+    for(v=0; v < g1->nv; v++)
+    {
+        //inserta_VL(&(g1->grafo), *(g.vertices+v));
+    }
+
+    for(o = 0, vo = g1->grafo; o < g1->nv; o++, vo = vo->sig)
+    {
+        for(d = 0, vd = g1->grafo; d != NULL; d++, vd = vd->sig)
+        {
+            if(*(*(g.mR+o)+d)==1)
+            {
+                //inserta_AL(&(vo->aba)), vd);
+            }
+        }
+    }
+}
+
+void imprime_grafoLL(TGrafoL g)
+{
+    TNodoVL *v;
+    TNodoAL *a;
+
+    for(v=g.grafo; v!=NULL; v=v->sig)
+    {
+        printf("%d -> ", v->vertice);
+        for(a=v->aba; a!=NULL; a=a->sig)
+        {
+            printf("%d, ", a->arri->vertice);
+        }
     }
 }
