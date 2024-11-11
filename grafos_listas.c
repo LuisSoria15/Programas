@@ -73,31 +73,39 @@ TNodoVL* crea_nodoVL(int vertice);
 TNodoAL* crea_nodoAL(TNodoVL *vd);
 TNodoVL *inserta_VL(TNodoVL **g, int ver);
 TNodoAL *inserta_AL(TNodoAL **cab, TNodoVL *dest);
-void crea_grafoLL(TGrafoL *g1, TGrafoM g);
+void crea_grafoLL(TGrafoM g, TGrafoL *g1);
 void imprime_grafoLL(TGrafoL g);
 
 int main()
 {
     TGrafoM grafo;
     TGrafoV g1;
+    TGrafoL g2;
     int v;
-
+    printf("GRAFO MATRIZ:\n");
     crea_grafoM(&grafo, "g1.txt");
     Matriz(grafo);
-    if (agrega_vertice(&grafo, 6));
+
+    /*if (agrega_vertice(&grafo, 6))
     {
         Matriz(grafo);
     }
+
     printf("Vertice a Eliminar: ");
     scanf("%d", &v);
 
     if(elimina_vertice(&grafo, v))
     {
         Matriz(grafo);
-    }
+    }*/
+
+    printf("GRAFO VECTOR:\n");
     crea_grafo_vector(grafo, &g1);
     imprime_grafoV(g1);
-    //  imprime_grafo(grafo);
+
+    printf("GRAFO LISTAS DE LISTAS\n");
+    crea_grafoLL(grafo, &g2);
+    imprime_grafoLL(g2);
 }
 
 void crea_grafoM(TGrafoM *g, char nom_arch[])
@@ -170,7 +178,6 @@ void imprime_grafo(TGrafoM g)
 void Matriz(TGrafoM g)
 {
     int o, d;
-    printf("\n");
 
     for (o = 0; o < g.nv; o++)
     {
@@ -346,7 +353,7 @@ void imprime_lista(TNodoA *cab)
 {
     if(cab)
     {
-        printf("%d", cab->vertice_d);
+        printf("%d ", cab->vertice_d);
         imprime_lista(cab->sig);
     }
 }
@@ -420,6 +427,7 @@ TNodoVL* crea_nodoVL(int vertice)
         aux->sig=NULL;
         aux->vertice=vertice;
     }
+    return aux;
 }
 
 TNodoAL* crea_nodoAL(TNodoVL *vd)
@@ -433,15 +441,17 @@ TNodoAL* crea_nodoAL(TNodoVL *vd)
         aux->arri=vd;
         aux->sig=NULL;
     }
+    return aux;
 }
 
 TNodoVL *inserta_VL(TNodoVL **g, int ver)
 {
-    TNodoVL *aux;
+    TNodoVL *aux=NULL;
 
     if(*g==NULL)
     {
         aux=crea_nodoVL(ver);
+        *g = aux;
     }
     else
     {
@@ -469,24 +479,23 @@ TNodoAL *inserta_AL(TNodoAL **cab, TNodoVL *dest)
     }
 }
 
-void crea_grafoLL(TGrafoL *g1, TGrafoM g)
+void crea_grafoLL(TGrafoM g, TGrafoL *g1)
 {
     int v, o, d;
     TNodoVL *vo, *vd;
     g1->grafo = NULL;
     g1->nv = g.nv;
-    g1->tipo;
+    //g1->tipo;
 
     for(v=0; v < g1->nv; v++)
     {
         inserta_VL(&(g1->grafo), *(g.vertices+v));
     }
-
     for(o = 0, vo = g1->grafo; o < g1->nv; o++, vo = vo->sig)
     {
         for(d = 0, vd = g1->grafo; d < g1->nv; d++, vd = vd->sig)
         {
-            if(*(*(g.mR+o)+d)==1)
+            if(*(*(g.mR+o)+d) == 1)
             {
                 inserta_AL(&(vo->aba), vd);
             }
@@ -504,7 +513,8 @@ void imprime_grafoLL(TGrafoL g)
         printf("%d -> ", v->vertice);
         for(a=v->aba; a!=NULL; a=a->sig)
         {
-            printf("%d, ", a->arri->vertice);
+            printf("%d ", a->arri->vertice);
         }
+        printf("\n");
     }
 }
