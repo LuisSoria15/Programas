@@ -41,7 +41,7 @@ typedef struct nodVL
 {
     int vertice;
     struct nodVL *sig;
-    struct nodAL *aba;
+    TNodoAL *aba;
 }TNodoVL;
 
 typedef struct//grafo en lista de listas
@@ -60,11 +60,21 @@ int modifica_arista(TGrafoM g, int vo, int vd, int va);
 void agrega_arista(TGrafoM g, int vo, int vd);
 void elimina_arista(TGrafoM g, int vo, int vd);
 int elimina_vertice(TGrafoM *g, int ver);
+
 TNodoA *crea_nodoA(int vd);
 void inserta_final(TNodoA **cab, int vd);
+int elimina_fin(TNodoA **cab, int *vd);
 void imprime_lista(TNodoA *cab);
 void crea_grafo_vector(TGrafoM g, TGrafoV *g1);
 void imprime_grafoV(TGrafoV g);
+void modifica_aristaGL(TGrafoV *g, int vo, int vd, int va);
+
+TNodoVL* crea_nodoVL(int vertice);
+TNodoAL* crea_nodoAL(TNodoVL *vd);
+TNodoVL *inserta_VL(TNodoVL **g, int ver);
+TNodoAL *inserta_AL(TNodoAL **cab, TNodoVL *dest);
+void crea_grafoLL(TGrafoL *g1, TGrafoM g);
+void imprime_grafoLL(TGrafoL g);
 
 int main()
 {
@@ -311,6 +321,27 @@ void inserta_final(TNodoA **cab, int vd)
     }
 }
 
+int elimina_fin(TNodoA **cab, int *vd)
+{
+    int b=0;
+    TNodoA *aux=*cab;
+    if(*cab != NULL)
+    {
+        if((*cab)->sig == NULL)
+        {
+            *cab = NULL;
+            *vd = aux->vertice_d;
+            b=1;
+            free(aux);
+        }
+        else
+        {
+            b=elimina_fin(&(*cab)->sig, vd);
+        }
+    }
+    return b;
+}
+
 void imprime_lista(TNodoA *cab)
 {
     if(cab)
@@ -357,11 +388,88 @@ void imprime_grafoV(TGrafoV g)
     }
 }
 
-//crear funciones modifica arista, agrega arista, elimina arista y las funciones agrega vertice elimina vertice del arrgelo de lista
-//crear funcion crea grafo lista de listas a partir de mR
-//funciones crea nodo de LL
+void modifica_aristaGL(TGrafoV *g, int vo, int vd, int va)//funcion para modificar arista en un arreglo de listas
+{
+    int v1;
 
-void crea_grafoLL(TGrafoM g, TGrafoL *g1)
+    for(v1=0; v1<g->nv; v1++)
+    {
+        if((g->vertices+v1)->vertice == vo)
+        {
+            if(va == 1)
+            {
+                inserta_final(&(g->vertices+v1)->cab_rel, vd);
+            }
+            else
+            {
+                elimina_fin(&(g->vertices+v1)->cab_rel, &vd);
+            }
+        }
+    }
+}
+
+TNodoVL* crea_nodoVL(int vertice)
+{
+    TNodoVL *aux;
+
+    aux=(TNodoVL*)malloc(sizeof(TNodoVL));
+
+    if(aux)
+    {
+        aux->aba=NULL;
+        aux->sig=NULL;
+        aux->vertice=vertice;
+    }
+}
+
+TNodoAL* crea_nodoAL(TNodoVL *vd)
+{
+    TNodoAL *aux;
+
+    aux=(TNodoAL*)malloc(sizeof(TNodoAL));
+
+    if(aux)
+    {
+        aux->arri=vd;
+        aux->sig=NULL;
+    }
+}
+
+TNodoVL *inserta_VL(TNodoVL **g, int ver)
+{
+    TNodoVL *aux;
+
+    if(*g==NULL)
+    {
+        aux=crea_nodoVL(ver);
+    }
+    else
+    {
+        if((*g)->vertice == ver)
+        {
+            aux=*g;
+        }
+        else
+        {
+            aux=inserta_VL(&(*g)->sig, ver);
+        }
+    }
+    return aux;
+}
+
+TNodoAL *inserta_AL(TNodoAL **cab, TNodoVL *dest)
+{
+    if(*cab ==NULL)
+    {
+        *cab=crea_nodoAL(dest);//este crearia el primer nodo 
+    }
+    else
+    {
+        inserta_AL((&(*cab)->sig), dest);//lo inserta al final
+    }
+}
+
+void crea_grafoLL(TGrafoL *g1, TGrafoM g)
 {
     int v, o, d;
     TNodoVL *vo, *vd;
@@ -371,16 +479,16 @@ void crea_grafoLL(TGrafoM g, TGrafoL *g1)
 
     for(v=0; v < g1->nv; v++)
     {
-        //inserta_VL(&(g1->grafo), *(g.vertices+v));
+        inserta_VL(&(g1->grafo), *(g.vertices+v));
     }
 
     for(o = 0, vo = g1->grafo; o < g1->nv; o++, vo = vo->sig)
     {
-        for(d = 0, vd = g1->grafo; d != NULL; d++, vd = vd->sig)
+        for(d = 0, vd = g1->grafo; d < g1->nv; d++, vd = vd->sig)
         {
             if(*(*(g.mR+o)+d)==1)
             {
-                //inserta_AL(&(vo->aba)), vd);
+                inserta_AL(&(vo->aba), vd);
             }
         }
     }
