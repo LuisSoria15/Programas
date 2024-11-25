@@ -84,8 +84,8 @@ void menu()
             printf("Ingresa una entidad: ");
             fgets(charEntity, sizeof(charEntity), stdin);
             charEntity[strcspn(charEntity, "\n")] = '\0';
-            ENTITY currentEntity;
-            SetPointerEntity(dataDictionary, &currentEntity, MAIN_ENTITY_POINTER, charEntity);
+            ENTITY currentEntity2;
+            SetPointerEntity(dataDictionary, &currentEntity2, MAIN_ENTITY_POINTER, charEntity);
             //funcion para crear datos
             break;
         case 0:
