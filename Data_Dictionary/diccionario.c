@@ -2,39 +2,49 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-//al momento de crear entidad podemos crear los n atributos que queramos y ahi ahcer la conexion entre ellos
+
 #define MAIN_ENTITY_POINTER 0
 #define EMPTY_POINTER -1
 #define DATA_BLOCK_SIZE 50
 
 typedef struct Entity
 {
-    char name[DATA_BLOCK_SIZE];
-    long dataPointer;
-    long attributesPointer;
-    long nextEntity;
+    char name[DATA_BLOCK_SIZE];//nombre de mi entidad
+    long dataPointer;//apunta a los datos, despues de pasar por un proceso de validacion con los atributos
+    long attributesPointer;//escribe el nombre del tipo de dato ej: nombre, apellido, clave, calificacion
+    long nextEntity;//contiene la direccion de la siguiente entidad en bytes
 }ENTITY;
 
 typedef struct Attribute
 {
-    char name[DATA_BLOCK_SIZE];
-    bool isPrimary;
-    long type;
-    long size;
-    long nextAttribute;
+    char name[DATA_BLOCK_SIZE];//nombre de mi atributo
+    bool isPrimary;//vefica la clave a usar, se tiene que comprobar de un conjunto de att que sea el unico con 1 y se ordenen en base al dato que seleccione(no se usara en el programa actual por tiempo)
+    long type;//tipo de dato, entero, flotante, cadena
+    long size;//tamaño de bloques que se usara
+    long nextAttribute;//apuntador en bytes al siguiente atributo
 }ATTRIBUTE;
+
+FILE* initializeDataDictionary(const char *dictionaryName);
 
 void createEntity(FILE* dataDictionary);
 void CreateAttribute(FILE* dataDictionary, ENTITY currentEntity);
-FILE* initializeDataDictionary(const char *dictionaryName);
 int appendEntity(FILE *dataDictionary, ENTITY newEntity);
 void reorderEntities(FILE* dataDictionary, long currentEntityPointer, const char* NewEntityName, long newEntityDirection);
-ENTITY removeEntities(FILE* dataDictionary, long currentEntityPointer , const char* EntityName);
+int removeEntities(FILE* dataDictionary, long currentEntityPointer , const char* EntityName);
+
+
 int appendAttribute(FILE *dataDictionary, ATTRIBUTE newAttribute);
 void reorderAttributes(FILE *dataDictionary, long currentAttributePointer, const char*newAttributeName, long newAttributeDirection);
+
+
 void menu();
+
+
 void SetPointerEntity(FILE *dataDictionary, ENTITY *currentEntity, long header, const char* entityName);
-void printEntitiesWithAttributes(FILE *dataDictionary, long header);
+void printEntitiesWithAttributesAndData(FILE *dataDictionary, long header);
+int ReadAttLocation(FILE *dataDictionary, ENTITY *currentEntity2);
+void readAttributeType(FILE *dataDictionary, long attributeDirection, ENTITY *currentEntity2);
+void setPointerToData(FILE *dataDictionary, long EndOFile, ENTITY *currentEntity2, long attributeDirection);
 
 int main(int argc, char** argv)
 {
@@ -44,7 +54,7 @@ int main(int argc, char** argv)
 
 void menu()
 {
-    char name[8];
+    char name[10];
     printf("\nEnter a dictionary Name: ");
     fgets(name, sizeof(name), stdin);//scanf
     name[strcspn(name, "\n")] = '\0';
@@ -58,7 +68,9 @@ void menu()
         printf("\n1 - Alta de entidad");
         printf("\n2 - Alta de atributo");
         printf("\n3 - Listar entidades y atributos");
-        printf("\n4 - Ingresar datos a un atributo");
+        printf("\n4 - Ingresar datos a una Entidad");
+        printf("\n5 - Dar de baja una entidad");
+        printf("\n6 - Dar de baja un atributo");
         printf("\n0 - Salir");
         printf("\nElige una opcion: ");
         scanf("%d", &opcion);
@@ -74,19 +86,31 @@ void menu()
             charEntity[strcspn(charEntity, "\n")] = '\0';
             ENTITY currentEntity;
             SetPointerEntity(dataDictionary, &currentEntity, MAIN_ENTITY_POINTER, charEntity);
-            //currentEntity.attributesPointer=66;
             CreateAttribute(dataDictionary, currentEntity);
             break;
         case 3:
-            printEntitiesWithAttributes(dataDictionary, MAIN_ENTITY_POINTER);
+            printEntitiesWithAttributesAndData(dataDictionary, MAIN_ENTITY_POINTER);
             break;
         case 4:
             printf("Ingresa una entidad: ");
             fgets(charEntity, sizeof(charEntity), stdin);
             charEntity[strcspn(charEntity, "\n")] = '\0';
             ENTITY currentEntity2;
-            SetPointerEntity(dataDictionary, &currentEntity2, MAIN_ENTITY_POINTER, charEntity);
-            //funcion para crear datos
+            SetPointerEntity(dataDictionary, &currentEntity2, MAIN_ENTITY_POINTER, charEntity);//busca la entidad escrita
+            long attDirection = ReadAttLocation(dataDictionary, &currentEntity2);//entrega la direccion del primer tipo de atributo
+            fseek(dataDictionary, 0 , SEEK_END);
+            long endFile = ftell(dataDictionary);//me entrega el final del archivo y el principio del atributo
+            setPointerToData(dataDictionary, endFile, &currentEntity2, attDirection);//primero hace la conexion de dataPointer de entity al fin del file por que ahi se insertaran lso datos de la siguiente funcion
+            readAttributeType(dataDictionary, attDirection, &currentEntity2);//aqui vamos a hacer insercion al final del file de los datos, basados en nuestros atributos
+            break;
+        case 5:
+            printf("Ingresa una entidad a eliminar");
+            fgets(charEntity, sizeof(charEntity), stdin);
+            charEntity[strcspn(charEntity, "\n")] = '\0';
+            removeEntities(dataDictionary, MAIN_ENTITY_POINTER, charEntity);
+            break;
+        case 6:
+            printf("");
             break;
         case 0:
             break;
@@ -111,6 +135,8 @@ FILE* initializeDataDictionary(const char *dictionaryName)
 
     return dictionary;
 }
+
+
 
 void createEntity(FILE* dataDictionary)
 {
@@ -149,7 +175,7 @@ int appendEntity(FILE *dataDictionary, ENTITY newEntity)
     //visualizacion de una sola entidad [-1][alumnos][-1][-1][-1]
     //                                  0   4       54  58  62  66
 
-    printf("Entity written at %ld", entityDirection);
+    printf("\nEntity written at %ld", entityDirection);
 
     return entityDirection;//se regresa el tamaño de 8 bytes(en la priemra iteracion) o los que haya segun el caso
 }
@@ -190,7 +216,7 @@ void reorderEntities(FILE* dataDictionary, long currentEntityPointer, const char
     }
 }
 
-/*ENTITY removeEntities(FILE* dataDictionary, long currentEntityPointer , const char* EntityName)
+int removeEntities(FILE* dataDictionary, long currentEntityPointer , const char* EntityName)
 {
     long currentEntityDirection = -1;
     
@@ -199,7 +225,7 @@ void reorderEntities(FILE* dataDictionary, long currentEntityPointer, const char
 
     if(currentEntityDirection == -1L)
     {
-        return 0;
+        return EXIT_FAILURE;
     }
     else
     {
@@ -208,6 +234,7 @@ void reorderEntities(FILE* dataDictionary, long currentEntityPointer, const char
         long nextHeaderPointer;
 
         fseek(dataDictionary, currentEntityDirection, SEEK_SET);
+
         fread(resultEntity.name, sizeof(char), DATA_BLOCK_SIZE, dataDictionary);
         nextHeaderPointer = ftell(dataDictionary) + (sizeof(long) *2);
 
@@ -220,14 +247,15 @@ void reorderEntities(FILE* dataDictionary, long currentEntityPointer, const char
             fseek(dataDictionary, currentEntityPointer, SEEK_SET);
             fwrite(&resultEntity.nextEntity, sizeof(long), 1, dataDictionary);
 
-            return resultEntity;
+            return EXIT_SUCCESS;
         }
         else
         {
             return removeEntities(dataDictionary, nextHeaderPointer, EntityName);
         }
     }
-}*/
+}
+
 
 void CreateAttribute(FILE* dataDictionary, ENTITY currentEntity)
 {
@@ -250,9 +278,13 @@ void CreateAttribute(FILE* dataDictionary, ENTITY currentEntity)
 
     newAttribute.nextAttribute= EMPTY_POINTER;
 
-    long attributeDirection = appendAttribute(dataDictionary, newAttribute);
+    long attributeDirection = appendAttribute(dataDictionary, newAttribute);//hara append al final del archivo, attDir vale la direccion del final
     reorderAttributes(dataDictionary, currentEntity.attributesPointer, newAttribute.name, attributeDirection);
 
+    long test;
+    fseek(dataDictionary, currentEntity.attributesPointer, SEEK_SET);
+    fread(&test, sizeof(long), 1, dataDictionary);
+    printf(" Direccion del primer atributo escrita en: %ld\n", test);
 }
 
 int appendAttribute(FILE *dataDictionary, ATTRIBUTE newAttribute)
@@ -305,39 +337,46 @@ void reorderAttributes(FILE *dataDictionary, long currentAttributePointer, const
     }
 }
 
+
+
 void SetPointerEntity(FILE *dataDictionary, ENTITY *currentEntity, long currentEntitiesDirection, const char* entityName)
-{
+{//pasamos como parametros del diccionario, la struct entity la variable currentEntitiesDir(que simpre valdra 0 en la 1era iteracion que es el inicio del file), y el nombre de la entidad a buscar
     long nextHeaderPointer;
     long currentEntityPointer;
     char currentEntityName[DATA_BLOCK_SIZE];
 
-    fseek(dataDictionary, currentEntitiesDirection, SEEK_SET);
-    fread(&currentEntityPointer, sizeof(long), 1, dataDictionary);
-    fseek(dataDictionary, currentEntityPointer, SEEK_SET);
-    fread(&currentEntityName, sizeof(char), DATA_BLOCK_SIZE, dataDictionary);
-
-    if (strcmp(entityName, currentEntityName) == 0) 
+    fseek(dataDictionary, currentEntitiesDirection, SEEK_SET);//nos posicionamos al inicio de todo el file
+    fread(&currentEntityPointer, sizeof(long), 1, dataDictionary);//leemos el byte que esta ahi(debe haber datos)
+    if(currentEntityPointer == -1L)//en caso de ser -1 el header, significa que o no hay conexion alguna o no hay entidades
     {
-        currentEntity->dataPointer = ftell(dataDictionary);
-        currentEntity->attributesPointer = ftell(dataDictionary)+sizeof(long);
+        printf("No existen enitdades");
+        return;
+    }
+    fseek(dataDictionary, currentEntityPointer, SEEK_SET);//despues de leer el dato aqui nos posicionamos a la direccion de la 1era entidad
+    fread(&currentEntityName, sizeof(char), DATA_BLOCK_SIZE, dataDictionary);//leemos el nombre de la entidad y la guardamos
+
+    if (strcmp(entityName, currentEntityName) == 0) //si es igual a la que buscamos
+    {
+        currentEntity->dataPointer = ftell(dataDictionary);//entonces aqui asignamos a la struct su respectivo apuntador para poder usarlo en otras funciones(solo da la direccion de donde esta, no el dato interno)
+        currentEntity->attributesPointer = ftell(dataDictionary)+sizeof(long);//mismo aqui, podemos usar el apuntador a datos y attributos de la entidad que necesitamos(solo da la direccion de donde esta, no el dato interno)
         return;
     }
     else
     {
         long newcurrentEntitiesDirection;
         fseek(dataDictionary, currentEntityPointer + DATA_BLOCK_SIZE + sizeof(long) * 2, SEEK_SET);
-        newcurrentEntitiesDirection = ftell(dataDictionary);
+        newcurrentEntitiesDirection = ftell(dataDictionary);//en caso de no encontrar la entidad llamamos recursivamente con el apuntador como "header" a la sigueinte entidad a buscar y asi hasta encontrarse
         SetPointerEntity(dataDictionary, currentEntity, newcurrentEntitiesDirection, entityName);
     }
 }
 
-void printEntitiesWithAttributes(FILE *dataDictionary, long header)
+void printEntitiesWithAttributesAndData(FILE *dataDictionary, long header)
 {
     long currentEntityPointer;
     fseek(dataDictionary, header, SEEK_SET);
     fread(&currentEntityPointer, sizeof(long), 1, dataDictionary);
 
-    printf("\n----------List of Entities and their Attributes:---------------\n");
+    printf("\n----------List of Entities, Attributes, and Data:---------------\n");
     while (currentEntityPointer != EMPTY_POINTER)
     {
         ENTITY currentEntity;
@@ -349,6 +388,7 @@ void printEntitiesWithAttributes(FILE *dataDictionary, long header)
         fread(&currentEntity.nextEntity, sizeof(long), 1, dataDictionary);
 
         printf("\nEntity: %s", currentEntity.name);
+
         long currentAttributePointer = currentEntity.attributesPointer;
         if (currentAttributePointer == EMPTY_POINTER)
         {
@@ -357,6 +397,10 @@ void printEntitiesWithAttributes(FILE *dataDictionary, long header)
         else
         {
             printf("  -----Attributes------\n");
+            long totalAttributeSize = 0; // Total size of all attributes
+            ATTRIBUTE attributes[100];  // Store attributes for later data reading
+            int attributeCount = 0;
+
             while (currentAttributePointer != EMPTY_POINTER)
             {
                 ATTRIBUTE currentAttribute;
@@ -367,33 +411,188 @@ void printEntitiesWithAttributes(FILE *dataDictionary, long header)
                 fread(&currentAttribute.size, sizeof(long), 1, dataDictionary);
                 fread(&currentAttribute.nextAttribute, sizeof(long), 1, dataDictionary);
 
-
-                printf("    - Name of attribute: %s", currentAttribute.name);
+                printf("    - Name of attribute: %s\n", currentAttribute.name);
                 printf("      Primary Key: %s\n", currentAttribute.isPrimary ? "Yes" : "No");
                 printf("      Type: %ld\n", currentAttribute.type);
                 printf("      Size: %ld\n", currentAttribute.size);
 
+                attributes[attributeCount++] = currentAttribute;
+                totalAttributeSize += currentAttribute.size;
+                currentAttributePointer = currentAttribute.nextAttribute;
+            }
 
-                currentAttributePointer = currentAttribute.nextAttribute;//aqui avanza al otro atributo
+            // Print Data Section
+            if (currentEntity.dataPointer != EMPTY_POINTER)
+            {
+                printf("  -----Data------\n");
+                fseek(dataDictionary, currentEntity.dataPointer, SEEK_SET);
+                char *dataBuffer = malloc(totalAttributeSize);
+
+                while (fread(dataBuffer, totalAttributeSize, 1, dataDictionary) == 1)
+                {
+                    char *dataCursor = dataBuffer;
+                    for (int i = 0; i < attributeCount; ++i)
+                    {
+                        ATTRIBUTE attr = attributes[i];
+                        printf("    - %s: ", attr.name);
+                        switch (attr.type)
+                        {
+                        case 1: // Integer
+                            printf("%d", *(int *)dataCursor);
+                            break;
+                        case 2: // Float
+                            printf("%f", *(float *)dataCursor);
+                            break;
+                        case 3: // String
+                            printf("%s", (char *)dataCursor);
+                            break;
+                        case 4: // Boolean
+                            printf("%s", (*(int *)dataCursor) ? "true" : "false");
+                            break;
+                        default:
+                            printf("Unknown type");
+                            break;
+                        }
+                        dataCursor += attr.size;
+                        printf("\n");
+                    }
+                    printf("\n");
+                }
+
+                free(dataBuffer);
+            }
+            else
+            {
+                printf("  No data for this entity.\n");
             }
         }
 
-
-        currentEntityPointer = currentEntity.nextEntity;//aqui avanza a la otra entidad
+        currentEntityPointer = currentEntity.nextEntity; // Move to the next entity
     }
 }
 
-void readAttributeType()//esta funcion leera el tipo de atributo desde la direccion de la entidad para poder asignar la informacion correctamente con condiciones
-{
 
+int ReadAttLocation(FILE *dataDictionary, ENTITY *currentEntity2)
+{
+    long attLocation;
+
+    fseek(dataDictionary, currentEntity2->attributesPointer ,SEEK_SET);//aqui nos posicionamos en el espacio donde esta el aputnador al atributo, puede se -1 o que si haya atributo
+    fread(&attLocation, sizeof(long), 1, dataDictionary);//leemos el no. que tiene, sea -1 o la direccion
+
+    if(attLocation == -1L)
+    {
+        printf("No hay atributos en esta entidad");
+        return 0;
+    }
+
+    return attLocation;//return de la direccion del primer atributo de la entidad
 }
 
-void readData()//esta funcion hara el scanf necesario para cada tipo de atributo con un switch
+void readAttributeType(FILE *dataDictionary, long attributeDirection, ENTITY *currentEntity2)
 {
+    char currentAttributeName[DATA_BLOCK_SIZE];//guardara el nombre del atributo para mostrar en msj
+    long type;
+    long currentPos;
+    long customSize;
+    
+    memset(currentAttributeName, '\0', DATA_BLOCK_SIZE);
 
+    // Lee el nombre del atributo
+    fseek(dataDictionary, attributeDirection, SEEK_SET);
+    fread(&currentAttributeName, sizeof(char), DATA_BLOCK_SIZE, dataDictionary);
+
+    // Lee el tipo de atributo
+    fseek(dataDictionary, attributeDirection + DATA_BLOCK_SIZE + sizeof(bool) ,SEEK_SET);
+    fread(&type, sizeof(long), 1, dataDictionary);
+
+    // Leer el tamaño del atributo
+    fseek(dataDictionary, attributeDirection + DATA_BLOCK_SIZE + sizeof(bool) + sizeof(long), SEEK_SET);
+    fread(&customSize, sizeof(long), 1, dataDictionary);
+
+    void *value = malloc(customSize);
+    memset(value, '\0', customSize);
+
+    printf("Ingresa un valor para: %s\n", currentAttributeName);
+    switch (type)
+        {
+        case 1:
+            printf("Ingresa un valor Tipo entero: ");
+            scanf("%d", (int *)value);
+            getchar();
+            break;
+        case 2:
+            printf("Ingresa un valor Tipo flotante: ");
+            scanf("%f", (float *)value);
+            getchar();
+            break;
+        case 3:
+            printf("Ingresa un valor Tipo cadena: ");
+            scanf("%s", (char *)value);
+            getchar();
+            break;
+        case 4:
+            printf("Ingresa un valor tipo booleano 1 verdadero 0 falso:");
+            scanf("%d", (int *)value);
+            getchar();
+            break;
+        default:
+            printf("Tipo no reconocido\n");
+            free(value);
+            break;
+        }
+    //append al file
+    fseek(dataDictionary, 0, SEEK_END);
+    fwrite(value, customSize, 1, dataDictionary);
+
+    free(value);
+
+    //Lee el siguiente atributo
+    long nextAtt;
+    fseek(dataDictionary, attributeDirection + DATA_BLOCK_SIZE + sizeof(bool) + sizeof(long) * 2 ,SEEK_SET);
+    fread(&nextAtt, sizeof(long), 1, dataDictionary);
+    if(nextAtt == -1L)
+    {
+        long empty = -1;
+        fseek(dataDictionary, 0, SEEK_END);
+        fwrite(&empty, sizeof(long), 1, dataDictionary);//inserta al final del archivo un -1
+    }
+    else
+    {
+        readAttributeType(dataDictionary, nextAtt, currentEntity2);
+    }
 }
 
-void appendData()//esta funcion hara el fwrite en el archivo y lo conectara dataPointer de la entidad seleccionada
-{
+void setPointerToData(FILE *dataDictionary, long EndOFile, ENTITY *currentEntity2, long attributeDirection)
+{//pasa como parametro el diccionario, la direccion del fin del archivo y la struct endity con ya datos de direccion de una entidad dentro
+    
+    long dataPoint;
+    fseek(dataDictionary, currentEntity2->dataPointer, SEEK_SET);//nos posicionamos en el apuntador de atributo de al entidad
+    fread(&dataPoint, sizeof(long), 1, dataDictionary);//leemos el contenido de la direccion de dataPointer de la entidad, puede ser -1 o ya tener alguna direccion a datos
 
+    if(dataPoint == -1L)
+    {
+        fseek(dataDictionary, currentEntity2->dataPointer, SEEK_SET);
+        fwrite(&EndOFile, sizeof(long), 1, dataDictionary);//en caso de no tener alguna direccion, se la asignamos al final del file donde deberia estar los datos
+    }
+    else
+    {
+        int BytesCount=0;//vamos a leer el tamaño de todo el bloque de datos 
+        long currentAttPointer;
+        fseek(dataDictionary, currentEntity2->attributesPointer, SEEK_SET);//nos posicionamos en att pointer de la entidad
+        fread(&currentAttPointer, sizeof(long), 1, dataDictionary);//leemos donde esta posicionado la entidad
+
+        while(currentAttPointer != EMPTY_POINTER)//ciclo para moverse entre entidades
+        {
+            ATTRIBUTE currentAttribute;
+            fseek(dataDictionary, currentAttPointer + DATA_BLOCK_SIZE + sizeof(bool) + sizeof(long), SEEK_SET);//nos posicionamos en el primer atributo de la entidad
+            fread(&currentAttribute.size, sizeof(long), 1 , dataDictionary);//leemos el bloque de datos para saber cuanto vale
+            BytesCount = BytesCount + currentAttribute.size;//acumulamos en una variable ese bloque de datos
+            fread(&currentAttribute.nextAttribute, sizeof(long), 1, dataDictionary);//leemos la dir siguiente atributo para saber a donde desplazarnos
+            currentAttPointer = currentAttribute.nextAttribute;//nos movemos al siguiente atributo hasta que su bloque de siguiente sea -1
+        }
+
+        fseek(dataDictionary, dataPoint + BytesCount, SEEK_END);//aqui nos posicionamos en el final del bloque de datos
+        long endOfFile = ftell(dataDictionary);//aqui guardamos el dato del final del archivo(que es donde se almecenaran los nuevos datos)
+        fwrite(&endOfFile, sizeof(long), 1, dataDictionary);//y escribimos su direccion, para tener esa conexion entre datos
+    }
 }
