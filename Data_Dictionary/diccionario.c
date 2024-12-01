@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-//definiciones
+// definiciones
 #define MAIN_ENTITY_POINTER 0
 #define EMPTY_POINTER -1
 #define DATA_BLOCK_SIZE 50
-//estructuras 
+// estructuras
 typedef struct Entity
 {
     char name[DATA_BLOCK_SIZE]; // nombre de mi entidad
@@ -14,7 +14,6 @@ typedef struct Entity
     long attributesPointer;     // escribe el nombre del tipo de dato ej: nombre, apellido, clave, calificacion
     long nextEntity;            // contiene la direccion de la siguiente entidad en bytes
 } ENTITY;
-
 typedef struct Attribute
 {
     char name[DATA_BLOCK_SIZE]; // nombre de mi atributo
@@ -23,7 +22,6 @@ typedef struct Attribute
     long size;                  // tamaño de bloques que se usara
     long nextAttribute;         // apuntador en bytes al siguiente atributo
 } ATTRIBUTE;
-
 // inicializacion
 FILE *initializeDataDictionary(const char *dictionaryName);
 FILE *initializeDataDictionary2(const char *dictionaryName);
@@ -45,10 +43,10 @@ void SetPointerEntity(FILE *dataDictionary, ENTITY *currentEntity, long header, 
 int ReadAttLocation(FILE *dataDictionary, ENTITY *currentEntity2);
 void readAttributeType(FILE *dataDictionary, long attributeDirection, ENTITY *currentEntity2);
 void setPointerToData(FILE *dataDictionary, long EndOFile, ENTITY *currentEntity2, long attributeDirection);
-//impresion
+void ClearBuffer();
+// impresion
 void printEntitiesWithAttributesAndData(FILE *dataDictionary, long header);
 void printEntityAtt(FILE *dataDictionary, long header);
-
 
 int main(int argc, char **argv)
 {
@@ -71,6 +69,7 @@ void menu(FILE *dataDictionary)
         printf("\n4 - Ingresar datos a una Entidad");
         printf("\n5 - Dar de baja una entidad");
         printf("\n6 - Dar de baja un atributo");
+        printf("\n7- Listar datos de entidad");
         printf("\n0 - Salir");
         printf("\nElige una opcion: ");
         scanf("%d", &opcion);
@@ -122,6 +121,7 @@ void menu(FILE *dataDictionary)
             removeAttributes(dataDictionary, currentAttDir, charAttribute);
             break;
         case 0:
+            printf("Saliendo...");
             break;
         default:
             printf("Opción no válida. Intenta de nuevo.\n");
@@ -319,34 +319,76 @@ int removeEntities(FILE *dataDictionary, long currentEntityPointer, const char *
     }
 }
 
+void ClearBuffer()
+{
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF)
+        ;
+}
+
 void CreateAttribute(FILE *dataDictionary, ENTITY currentEntity)
 {
     ATTRIBUTE newAttribute;
 
-    printf("\nEnter the Attribute name:");
+    // Solicitar el nombre del atributo
+    printf("\nEnter the Attribute name: ");
     memset(newAttribute.name, '\0', sizeof(newAttribute.name));
     fgets(newAttribute.name, sizeof(newAttribute.name), stdin);
-    newAttribute.name[strcspn(newAttribute.name, "\n")] = '\0';
+    newAttribute.name[strcspn(newAttribute.name, "\n")] = '\0'; // Eliminar salto de línea, si existe
 
+    // Preguntar si el atributo es una clave primaria
     printf("\nIs this attribute a primary key? (1: Yes, 0: No): ");
-    scanf("%d", &newAttribute.isPrimary);
-    getchar();
+    if (scanf("%d", &newAttribute.isPrimary) != 1)
+    {
+        printf("Invalid input. Setting as not primary key.\n");
+        newAttribute.isPrimary = 0;
+    }
+    ClearBuffer();
+
+    // Solicitar el tipo de atributo
     printf("\nEnter the type of the attribute (1: int, 2: float, 3: char, 4: bool): ");
     scanf("%ld", &newAttribute.type);
-    getchar();
-    printf("\nEnter the size of the attribute (0 if not applicable): ");
-    scanf("%ld", &newAttribute.size);
-    getchar();
+    ClearBuffer();
 
+    // Determinar el tamaño del atributo según el tipo
+    switch (newAttribute.type)
+    {
+    case 1: // int
+        newAttribute.size = 4;
+        break;
+    case 2: // float
+        newAttribute.size = 4;
+        break;
+    case 3: // char
+        printf("\nEnter the size of the attribute: ");
+        if (scanf("%ld", &newAttribute.size) != 1)
+        {
+            printf("Invalid input. Setting size to 0.\n");
+            newAttribute.size = 0;
+        }
+        ClearBuffer();
+        break;
+    case 4: // bool
+        newAttribute.size = 1;
+        break;
+    default:
+        printf("\nInvalid attribute type. Setting size to 0.\n");
+        newAttribute.size = 0;
+        break;
+    }
+
+    // Inicializar el siguiente atributo como puntero vacío
     newAttribute.nextAttribute = EMPTY_POINTER;
 
-    long attributeDirection = appendAttribute(dataDictionary, newAttribute); // hara append al final del archivo, attDir vale la direccion del final
+    // Procesar el atributo
+    long attributeDirection = appendAttribute(dataDictionary, newAttribute); // Hará append al final del archivo
     reorderAttributes(dataDictionary, currentEntity.attributesPointer, newAttribute.name, attributeDirection);
 
+    // Depuración: Mostrar la dirección del primer atributo
     long test;
     fseek(dataDictionary, currentEntity.attributesPointer, SEEK_SET);
     fread(&test, sizeof(long), 1, dataDictionary);
-    printf(" Direccion del primer atributo escrita en: %ld\n", test);
+    printf("Address of the first attribute written in: %ld\n", test);
 }
 
 int appendAttribute(FILE *dataDictionary, ATTRIBUTE newAttribute)
@@ -467,107 +509,6 @@ void SetPointerEntity(FILE *dataDictionary, ENTITY *currentEntity, long currentE
     }
 }
 
-void printEntitiesWithAttributesAndData(FILE *dataDictionary, long header)
-{
-    long currentEntityPointer;
-    fseek(dataDictionary, header, SEEK_SET);
-    fread(&currentEntityPointer, sizeof(long), 1, dataDictionary);
-
-    printf("\n----------List of Entities, Attributes, and Data:---------------\n");
-    while (currentEntityPointer != EMPTY_POINTER)
-    {
-        ENTITY currentEntity;
-
-        fseek(dataDictionary, currentEntityPointer, SEEK_SET);
-        fread(currentEntity.name, DATA_BLOCK_SIZE, 1, dataDictionary);
-        fread(&currentEntity.dataPointer, sizeof(long), 1, dataDictionary);
-        fread(&currentEntity.attributesPointer, sizeof(long), 1, dataDictionary);
-        fread(&currentEntity.nextEntity, sizeof(long), 1, dataDictionary);
-
-        printf("\nEntity: %s", currentEntity.name);
-
-        long currentAttributePointer = currentEntity.attributesPointer;
-        if (currentAttributePointer == EMPTY_POINTER)
-        {
-            printf("  No attributes\n");
-        }
-        else
-        {
-            printf("  -----Attributes------\n");
-            long totalAttributeSize = 0; // Total size of all attributes
-            ATTRIBUTE attributes[100];   // Store attributes for later data reading
-            int attributeCount = 0;
-
-            while (currentAttributePointer != EMPTY_POINTER)
-            {
-                ATTRIBUTE currentAttribute;
-                fseek(dataDictionary, currentAttributePointer, SEEK_SET);
-                fread(currentAttribute.name, DATA_BLOCK_SIZE, 1, dataDictionary);
-                fread(&currentAttribute.isPrimary, sizeof(bool), 1, dataDictionary);
-                fread(&currentAttribute.type, sizeof(long), 1, dataDictionary);
-                fread(&currentAttribute.size, sizeof(long), 1, dataDictionary);
-                fread(&currentAttribute.nextAttribute, sizeof(long), 1, dataDictionary);
-
-                printf("    - Name of attribute: %s\n", currentAttribute.name);
-                printf("      Primary Key: %s\n", currentAttribute.isPrimary ? "Yes" : "No");
-                printf("      Type: %ld\n", currentAttribute.type);
-                printf("      Size: %ld\n", currentAttribute.size);
-
-                attributes[attributeCount++] = currentAttribute;
-                totalAttributeSize += currentAttribute.size;
-                currentAttributePointer = currentAttribute.nextAttribute;
-            }
-
-            // Print Data Section
-            if (currentEntity.dataPointer != EMPTY_POINTER)
-            {
-                printf("  -----Data------\n");
-                fseek(dataDictionary, currentEntity.dataPointer, SEEK_SET);
-                char *dataBuffer = malloc(totalAttributeSize);
-
-                while (fread(dataBuffer, totalAttributeSize, 1, dataDictionary) == 1)
-                {
-                    char *dataCursor = dataBuffer;
-                    for (int i = 0; i < attributeCount; ++i)
-                    {
-                        ATTRIBUTE attr = attributes[i];
-                        printf("    - %s: ", attr.name);
-                        switch (attr.type)
-                        {
-                        case 1: // Integer
-                            printf("%d", *(int *)dataCursor);
-                            break;
-                        case 2: // Float
-                            printf("%f", *(float *)dataCursor);
-                            break;
-                        case 3: // String
-                            printf("%s", (char *)dataCursor);
-                            break;
-                        case 4: // Boolean
-                            printf("%s", (*(int *)dataCursor) ? "true" : "false");
-                            break;
-                        default:
-                            printf("Unknown type");
-                            break;
-                        }
-                        dataCursor += attr.size;
-                        printf("\n");
-                    }
-                    printf("\n");
-                }
-
-                free(dataBuffer);
-            }
-            else
-            {
-                printf("  No data for this entity.\n");
-            }
-        }
-
-        currentEntityPointer = currentEntity.nextEntity; // Move to the next entity
-    }
-}
-
 void printEntityAtt(FILE *dataDictionary, long header)
 {
     long currentEntityPointer;
@@ -578,6 +519,7 @@ void printEntityAtt(FILE *dataDictionary, long header)
     printf("\n------Entidades y Atributos------\n");
     while (currentEntityPointer != EMPTY_POINTER)
     {
+        int attCount;
         ENTITY currentEntity;
         fseek(dataDictionary, currentEntityPointer, SEEK_SET);
         fread(currentEntity.name, DATA_BLOCK_SIZE, 1, dataDictionary);
@@ -604,7 +546,73 @@ void printEntityAtt(FILE *dataDictionary, long header)
             printf("      Llave primaria: %s\n", currentAttribute.isPrimary ? "Si" : "No");
             printf("      Tipo: %ld\n", currentAttribute.type);
             printf("      Tamanio: %ld\n", currentAttribute.size);
-            currentAttPointer = currentAttribute.nextAttribute;
+            currentAttPointer = currentAttribute.nextAttribute; // avanzamos
+        }
+
+        long NextData = currentEntity.dataPointer;
+        printf("\n---DATA---\n");
+        if (NextData == EMPTY_POINTER)
+        {
+            printf("No hay datos\n");
+        }
+        else
+        {
+            while (NextData != EMPTY_POINTER)
+            {
+                currentAttPointer = currentEntity.attributesPointer;
+                long PointerToData = NextData;
+
+                while (currentAttPointer != EMPTY_POINTER)
+                {
+                    ATTRIBUTE currentAttribute2;
+                    //posicion del atributo
+                    fseek(dataDictionary, currentAttPointer, SEEK_SET);
+                    //lectura de attributo
+                    fread(currentAttribute2.name, DATA_BLOCK_SIZE, 1, dataDictionary);
+                    fread(&currentAttribute2.isPrimary, sizeof(bool), 1, dataDictionary);
+                    fread(&currentAttribute2.type, sizeof(long), 1, dataDictionary);
+                    fread(&currentAttribute2.size, sizeof(long), 1, dataDictionary);
+                    fread(&currentAttribute2.nextAttribute, sizeof(long), 1, dataDictionary);
+                    //posicion de datos
+                    fseek(dataDictionary, PointerToData, SEEK_SET); //usar variable actualizable
+                    char datoC[currentAttribute2.size];
+
+                    switch (currentAttribute2.type)
+                    {
+                    case 1:
+                        int datoI;
+                        fread(&datoI, sizeof(int), 1, dataDictionary);
+                        printf("||%d", datoI);
+                        break;
+                    case 2:
+                        int datoF;
+                        fread(&datoF, sizeof(float), 1, dataDictionary);
+                        printf("||%f", datoF);
+                        break;
+                    case 3:
+                        fread(&datoC, currentAttribute2.size, 1, dataDictionary);
+                        printf("||%s", datoC);
+                        break;
+                    case 4:
+                        bool datoB;
+                        fread(&datoB, sizeof(bool), 1, dataDictionary);
+                        if (datoB)
+                        {
+                            printf("||Verdadero");
+                        }
+                        else
+                        {
+                            printf("||Falso");
+                        }
+                        break;
+                    default:
+                        break;
+                    }
+                    currentAttPointer = currentAttribute2.nextAttribute;
+                    PointerToData=ftell(dataDictionary);
+                }
+                fread(&NextData, sizeof(long), 1, dataDictionary);
+            }
         }
         currentEntityPointer = currentEntity.nextEntity;
     }
